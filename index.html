@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced GitHub Repo Viewer</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f6f8fa; color: #24292e; }
+        h1 { color: #0366d6; margin-bottom: 20px; }
+        #initial-load-message {
+            text-align: center;
+            margin-top: 50px;
+            margin-bottom: 30px;
+            font-size: 1.3em;
+            color: #6a737d;
+            background-color: #e0eaf3;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #c9d0d6;
+        }
+        #controls { margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        #controls button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        #controls button:hover { background-color: #218838; }
+        #current-path-display {
+            font-size: 1em;
+            color: #586069;
+            background-color: #e8eaed;
+            padding: 6px 12px;
+            border-radius: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 500px; /* Adjust as needed */
+        }
+        #repo-contents ul { list-style: none; padding: 0; border: 1px solid #dfe2e5; border-radius: 6px; background-color: #fff; }
+        #repo-contents li {
+            padding: 10px 15px;
+            border-bottom: 1px solid #dfe2e5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #repo-contents li:last-child { border-bottom: none; }
+        #repo-contents a { text-decoration: none; color: #0366d6; font-weight: 500; }
+        #repo-contents a:hover { text-decoration: underline; }
+        .file-item, .folder-item { flex-grow: 1; }
+        .folder-actions button {
+            background: none;
+            border: 1px solid #0366d6;
+            color: #0366d6;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 0.9em;
+        }
+        .folder-actions button:hover {
+            background-color: #f0f6fc;
+        }
+        .loading-text { color: #6a737d; }
+        .warning {
+            background-color: #fffbdd;
+            border: 1px solid #e0c800;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div id="initial-load-message">
+        <p>🚀 Initializing GitHub Repo Explorer... Fetching data, please wait! 🌟</p>
+    </div>
+
+    <h1>Minecraft</h1>
+
+    <div class="warning">
+        <strong>⚠️ Warning:</strong> Looking thru here can cause some rate limit issues. Just click "Go to default" if you want to play Minecraft quickly. It may not be the newest.
+        <br>
+        <br>
+                <button
+            id="redirectButton"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-75 w-full md:w-auto"
+        >
+            Go to default
+        </button>
+    </div>
+
+    <div id="controls">
+        <button id="go-up-btn" style="display: none;">⬆️ Go Up</button>
+        <div id="current-path-display">/</div>
+    </div>
+
+    <div id="repo-contents">
+        </div>
+
+    <script>
+        const owner = 'fidgetsetc'; // Change to the GitHub username
+        const repo = 'minecafts'; // Change to the repository name
+
+        let currentPath = ''; // Stores the current directory path
+        let initialLoadDone = false; // Flag to ensure initial message is removed only once
+
+        const repoContentsDiv = document.getElementById('repo-contents');
+        const goUpBtn = document.getElementById('go-up-btn');
+        const currentPathDisplay = document.getElementById('current-path-display');
+        const initialLoadMessageDiv = document.getElementById('initial-load-message'); // Get the new message div
+
+        /**
+         * Fetches contents of a given path in the repository.
+         * @param {string} path - The path within the repository (e.g., 'src/components').
+         */
+        async function fetchRepoContents(path) {
+            currentPath = path; // Update current path
+            currentPathDisplay.textContent = '/' + currentPath;
+            repoContentsDiv.innerHTML = '<p class="loading-text">Loading files...</p>'; // Specific loading for this area
+
+            // Hide the initial global message once content starts loading
+            if (!initialLoadDone && initialLoadMessageDiv) {
+                initialLoadMessageDiv.style.display = 'none';
+                initialLoadDone = true;
+            }
+
+
+            if (currentPath !== '') {
+                goUpBtn.style.display = 'inline-block';
+            } else {
+                goUpBtn.style.display = 'none';
+            }
+
+            const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    if (response.status === 403) {
+                         throw new Error('Rate limit error.');
+                    }
+                    throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
+                }
+                const data = await response.json();
+
+                repoContentsDiv.innerHTML = ''; // Clear loading message
+
+                if (Array.isArray(data)) {
+                    const ul = document.createElement('ul');
+                    if (data.length === 0) {
+                        ul.innerHTML = '<li><p class="loading-text">This folder is empty. 🤷‍♀️</p></li>';
+                    }
+
+                    data.forEach(item => {
+                        const li = document.createElement('li');
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = item.name;
+
+                        if (item.type === 'file') {
+                            li.className = 'file-item';
+                            const fileLink = document.createElement('a');
+                            fileLink.href = item.html_url; // Link to file on GitHub
+                            fileLink.target = '_blank';
+                            fileLink.textContent = '📄 ' + item.name;
+                            li.appendChild(fileLink);
+                        } else if (item.type === 'dir') {
+                            li.className = 'folder-item';
+                            const folderName = document.createElement('span');
+                            folderName.textContent = '📁 ' + item.name;
+                            li.appendChild(folderName);
+
+                            const folderActions = document.createElement('div');
+                            folderActions.className = 'folder-actions';
+
+                            const viewFilesBtn = document.createElement('button');
+                            viewFilesBtn.textContent = 'View Files';
+                            viewFilesBtn.onclick = (e) => {
+                                e.stopPropagation(); // Prevent potential parent click issues
+                                fetchRepoContents(item.path);
+                            };
+                            folderActions.appendChild(viewFilesBtn);
+
+                            // Placeholder for "Open Webpage" button, will be updated if index.html is found
+                            const openWebpageBtn = document.createElement('button');
+                            openWebpageBtn.textContent = 'Checking for index.html...';
+                            openWebpageBtn.disabled = true; // Disable until check is done
+                            folderActions.appendChild(openWebpageBtn);
+
+                            li.appendChild(folderActions);
+                            checkForIndexHtmlInFolder(item.path, openWebpageBtn); // Async check!
+
+                        }
+                        ul.appendChild(li);
+                    });
+                    repoContentsDiv.appendChild(ul);
+                } else {
+                    repoContentsDiv.innerHTML = '<p class="loading-text">Could not retrieve repository contents. Make sure the owner and repo are correct and public! 🕵️‍♀️</p>';
+                }
+
+            } catch (error) {
+                console.error('Error fetching repo contents:', error);
+                repoContentsDiv.innerHTML = `<p class="loading-text">Couldn't load file list, please try clicking "Go to default". Error info: ${error.message}. 😔</p>`;
+            }
+        }
+
+        /**
+         * Checks if a given folder contains an index.html file.
+         * Updates the provided button's text and functionality.
+         * @param {string} folderPath - The path to the folder to check.
+         * @param {HTMLElement} buttonElement - The button element to update.
+         */
+        async function checkForIndexHtmlInFolder(folderPath, buttonElement) {
+            const folderApiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${folderPath}`;
+            try {
+                const response = await fetch(folderApiUrl);
+                if (!response.ok) {
+                    if (response.status === 403) {
+                        throw new Error('API Rate Limit Exceeded!');
+                    }
+                    throw new Error(`GitHub API Error: ${response.status}`);
+                }
+                const data = await response.json();
+                const hasIndexHtml = Array.isArray(data) && data.some(file => file.name === 'index.html' && file.type === 'file');
+
+                if (hasIndexHtml) {
+                    buttonElement.textContent = 'Open Webpage 🌐';
+                    buttonElement.disabled = false;
+                    // Use htmlpreview.github.io for reliable rendering of raw HTML
+                    const htmlPreviewUrl = `https://htmlpreview.github.io/?https://github.com/${owner}/${repo}/blob/main/${folderPath}/index.html`;
+                    buttonElement.onclick = (e) => {
+                        e.stopPropagation();
+                        window.open(htmlPreviewUrl, '_blank');
+                    };
+                } else {
+                    buttonElement.textContent = 'No index.html found';
+                    buttonElement.disabled = true;
+                    buttonElement.style.color = '#6a737d';
+                    buttonElement.style.borderColor = '#d1d5da';
+                }
+            } catch (error) {
+                console.error(`Error checking for index.html in ${folderPath}:`, error);
+                buttonElement.textContent = 'Error checking';
+                buttonElement.disabled = true;
+                buttonElement.style.color = '#cb2431';
+                buttonElement.style.borderColor = '#cb2431';
+            }
+        }
+
+        // Event listener for the "Go Up" button
+        goUpBtn.addEventListener('click', () => {
+            const pathParts = currentPath.split('/');
+            pathParts.pop(); // Remove the last part
+            const newPath = pathParts.join('/');
+            fetchRepoContents(newPath);
+        });
+
+        // Initial load
+        fetchRepoContents('');
+ 
+ 
+        // Get a reference to the button element by its ID
+        const redirectButton = document.getElementById('redirectButton');
+
+        // Add an event listener to the button for the 'click' event
+        redirectButton.addEventListener('click', function() {
+            // Redirect the browser to 'main.html' when the button is clicked
+            window.location.href = 'main.html';
+        });
+    </script>
+
+</body>
+</html>
