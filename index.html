@@ -145,7 +145,7 @@
                 const response = await fetch(apiUrl);
                 if (!response.ok) {
                     if (response.status === 403) {
-                         throw new Error('Rate limit error.');
+                         throw new Error('API Rate Limit Exceeded! Please wait or use an authenticated token.');
                     }
                     throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
                 }
@@ -167,8 +167,9 @@
                         if (item.type === 'file') {
                             li.className = 'file-item';
                             const fileLink = document.createElement('a');
-                            fileLink.href = item.html_url; // Link to file on GitHub
-                            fileLink.target = '_blank';
+                            // *** CHANGE HERE: Use download_url and remove target="_blank" ***
+                            fileLink.href = item.download_url; // Link to the raw file content
+                            // fileLink.target = '_blank'; // Removed to open in the same window/tab as a redirect
                             fileLink.textContent = '📄 ' + item.name;
                             li.appendChild(fileLink);
                         } else if (item.type === 'dir') {
@@ -207,7 +208,7 @@
 
             } catch (error) {
                 console.error('Error fetching repo contents:', error);
-                repoContentsDiv.innerHTML = `<p class="loading-text">Couldn't load file list, please try clicking "Go to default". Error info: ${error.message}. 😔</p>`;
+                repoContentsDiv.innerHTML = `<p class="loading-text">Failed to load repository contents: ${error.message}. 😔</p>`;
             }
         }
 
@@ -237,7 +238,7 @@
                     const htmlPreviewUrl = `https://htmlpreview.github.io/?https://github.com/${owner}/${repo}/blob/main/${folderPath}/index.html`;
                     buttonElement.onclick = (e) => {
                         e.stopPropagation();
-                        window.open(htmlPreviewUrl, '_blank');
+                        window.open(htmlPreviewUrl, '_blank'); // Keeping this one open in a new tab for proper rendering
                     };
                 } else {
                     buttonElement.textContent = 'No index.html found';
@@ -264,17 +265,6 @@
 
         // Initial load
         fetchRepoContents('');
- 
- 
-        // Get a reference to the button element by its ID
-        const redirectButton = document.getElementById('redirectButton');
-
-        // Add an event listener to the button for the 'click' event
-        redirectButton.addEventListener('click', function() {
-            // Redirect the browser to 'main.html' when the button is clicked
-            window.location.href = 'main.html';
-        });
     </script>
-
 </body>
 </html>
