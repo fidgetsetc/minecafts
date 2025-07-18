@@ -167,10 +167,17 @@
                         if (item.type === 'file') {
                             li.className = 'file-item';
                             const fileLink = document.createElement('a');
-                            // *** CHANGE HERE: Use download_url and remove target="_blank" ***
-                            fileLink.href = item.download_url; // Link to the raw file content
-                            // fileLink.target = '_blank'; // Removed to open in the same window/tab as a redirect
                             fileLink.textContent = '📄 ' + item.name;
+                            fileLink.target = '_blank'; // Open all files in a new tab
+
+                            // Check if it's an HTML file to use htmlpreview.github.io
+                            if (item.name.toLowerCase().endsWith('.html')) {
+                                // For HTML files, use htmlpreview.github.io to render them properly
+                                fileLink.href = `https://htmlpreview.github.io/?${item.html_url}`;
+                            } else {
+                                // For all other files, open their raw content
+                                fileLink.href = item.download_url;
+                            }
                             li.appendChild(fileLink);
                         } else if (item.type === 'dir') {
                             li.className = 'folder-item';
@@ -265,6 +272,14 @@
 
         // Initial load
         fetchRepoContents('');
+		        // Get a reference to the button element by its ID
+        const redirectButton = document.getElementById('redirectButton');
+
+        // Add an event listener to the button for the 'click' event
+        redirectButton.addEventListener('click', function() {
+            // Redirect the browser to 'main.html' when the button is clicked
+            window.location.href = 'main.html';
+        });
     </script>
 </body>
 </html>
